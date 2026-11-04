@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: TerrainConfig
   m_EditorClassIdentifier: 
   brush:
-    radius: 2
+    radius: 1
     raiseLowerStrength: 1
     roughenAmount: 0.5
     flattenStrength: 1
@@ -42,16 +42,173 @@ MonoBehaviour:
     showGrid: 0
     showNormals: 0
   generator:
-    width: 64
-    depth: 64
-    cellSize: 1
-    heightRange: 10
-    terrainType: 0
-    seed: 0
-    noiseFrequency: 0.1
-    noiseAmplitude: 1
-    noiseOctaves: 4
-    noisePersistence: 0.5
+    width: 10
+    depth: 10
+    cellSize: 64.5
+    heightRange: 27.13
+    terrainType: 1
+    plainsBaseHeight: 0.491
+    plainsRelief: 0.42
+    plainsProfile:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 1
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    hillsBaseHeight: 0.15
+    hillsAmplitude: 0.4
+    hillsFrequency: 1.5
+    hillsProfile:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    mountainsBaseHeight: 0.1
+    mountainsPeakHeight: 0.9
+    mountainsSharpness: 2
+    mountainsProfile:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    valleyRimHeight: 0.7
+    valleyFloorHeight: 0.15
+    valleyWidth: 0.55
+    valleyProfile:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    plateauBaseHeight: 0.2
+    plateauHeight: 0.75
+    plateauWidth: 0.5
+    plateauEdgeProfile:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    canyonRimHeight: 0.65
+    canyonFloorHeight: 0.08
+    canyonWidth: 0.18
+    canyonCurvature: 0.5
+    canyonWallProfile:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
   edit:
     globalHeightScale: 1
     globalSmoothAmount: 0.5

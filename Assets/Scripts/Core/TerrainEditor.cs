@@ -1,7 +1,4 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
-using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider))]
@@ -26,12 +23,6 @@ public class TerrainEditor : MonoBehaviour
     [Range(0f, 1f)]
     public float roughenAmount = 0.5f;
 
-    [Header("UI References")]
-    public Slider brushRadiusSlider;
-    public TextMeshProUGUI brushRadiusText;
-    public Slider brushStrengthSlider;
-    public TextMeshProUGUI brushStrengthText;
-
     [Header("Visuals")]
     public LineRenderer brushVisualizer;
 
@@ -51,19 +42,26 @@ public class TerrainEditor : MonoBehaviour
     private Vector3[] _vertices;
     private MeshCollider _meshCollider;
     private Vector3[] _smoothedVertices;
+    private TerrainGenerator _terrainGenerator;
+    private bool _strokeUndoSaved;
+
+    public int TerrainWidth => _terrainWidth;
+    public int TerrainHeight => _terrainHeight;
 
     void Start()
     {
-        TerrainGenerator generator = GetComponent<TerrainGenerator>();
-        if (generator != null)
+        _terrainGenerator = FindObjectOfType<TerrainGenerator>();
+        if (_terrainGenerator != null)
         {
-            generator.Generate();
+            _terrainGenerator.terrainBrush = this;
+            if (UIControlManager.Instance == null)
+                _terrainGenerator.Generate();
         }
         else
         {
             GenerateTerrain();
         }
-        InitializeUI();
+
         InitializeBrushVisualizer();
     }
 
@@ -97,51 +95,40 @@ public class TerrainEditor : MonoBehaviour
         }
     }
 
-    void InitializeUI()
-    {
-        if (brushRadiusSlider != null)
-        {
-            brushRadiusSlider.minValue = 0.1f;
-            brushRadiusSlider.maxValue = 10.0f;
-            brushRadiusSlider.value = brushRadius;
-            brushRadiusSlider.onValueChanged.AddListener(OnBrushRadiusChanged);
-            UpdateRadiusText(brushRadius);
-        }
-
-        if (brushStrengthSlider != null)
-        {
-            brushStrengthSlider.minValue = 0.1f;
-            brushStrengthSlider.maxValue = 5.0f;
-            brushStrengthSlider.value = brushStrength;
-            brushStrengthSlider.onValueChanged.AddListener(OnBrushStrengthChanged);
-            UpdateStrengthText(brushStrength);
-        }
-    }
-
     private float _lastUpdateTime;
     private const float UPDATE_INTERVAL = 0.05f;
 
     void Update()
     {
-        bool isPointerOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        if (Input.GetMouseButtonDown(0))
+            _strokeUndoSaved = false;
+
+        if (Input.GetKey(KeyCode.LeftControl))
+        {
+            if (Input.GetKeyDown(KeyCode.Z)) Undo();
+            else if (Input.GetKeyDown(KeyCode.Y)) Redo();
+        }
 
         if (Time.time - _lastUpdateTime > UPDATE_INTERVAL)
         {
-            UpdateBrushVisualizer(isPointerOverUI);
+            UpdateBrushVisualizer();
             _lastUpdateTime = Time.time;
         }
 
-        if (Input.GetMouseButton(0) && !isPointerOverUI && terrainState == TerrainState.Editable)
+        if (Input.GetMouseButton(0) && terrainState == TerrainState.Editable)
         {
             HandleMouseInput();
         }
+
+        if (Input.GetMouseButtonUp(0))
+            _strokeUndoSaved = false;
     }
 
-    void UpdateBrushVisualizer(bool isPointerOverUI)
+    void UpdateBrushVisualizer()
     {
         if (brushVisualizer == null) return;
 
-        if (Camera.main == null || isPointerOverUI || terrainState != TerrainState.Editable)
+        if (Camera.main == null || terrainState != TerrainState.Editable)
         {
             brushVisualizer.enabled = false;
             return;
@@ -216,9 +203,15 @@ public class TerrainEditor : MonoBehaviour
 
         _meshCollider.sharedMesh = _mesh;
         terrainState = TerrainState.Editable;
+        ClearHistory();
     }
 
     public void SyncVerticesFromMesh()
+    {
+        SyncVerticesFromMesh(0, 0);
+    }
+
+    public void SyncVerticesFromMesh(int width, int height)
     {
         MeshFilter meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null || meshFilter.sharedMesh == null) return;
@@ -227,19 +220,43 @@ public class TerrainEditor : MonoBehaviour
         _vertices = _mesh.vertices;
         _smoothedVertices = (Vector3[])_vertices.Clone();
 
-        TerrainGenerator generator = GetComponent<TerrainGenerator>();
-        if (generator != null && generator.config != null)
+        if (width > 0 && height > 0)
         {
-            _terrainWidth = generator.config.width;
-            _terrainHeight = generator.config.depth;
+            _terrainWidth = width;
+            _terrainHeight = height;
+        }
+        else if (_terrainGenerator != null && _terrainGenerator.config != null)
+        {
+            _terrainWidth = _terrainGenerator.config.width;
+            _terrainHeight = _terrainGenerator.config.depth;
         }
         else
         {
             CalculateTerrainDimensions();
         }
 
+        _meshCollider = GetComponent<MeshCollider>();
+        ClearHistory();
         terrainState = TerrainState.Editable;
         Debug.Log($"[TerrainEditor] Terrain ready for editing: {_terrainWidth} x {_terrainHeight}");
+    }
+
+    public void SetTerrainMesh(Mesh mesh, int width, int height, float cellSize = 0f)
+    {
+        if (mesh == null) return;
+
+        MeshFilter meshFilter = GetComponent<MeshFilter>();
+        _meshCollider = GetComponent<MeshCollider>();
+        meshFilter.sharedMesh = mesh;
+        if (cellSize > 0f) terrainScale = cellSize;
+
+        if (_meshCollider != null)
+        {
+            _meshCollider.sharedMesh = null;
+            _meshCollider.sharedMesh = mesh;
+        }
+
+        SyncVerticesFromMesh(width, height);
     }
 
     private void CalculateTerrainDimensions()
@@ -259,7 +276,7 @@ public class TerrainEditor : MonoBehaviour
             return;
         }
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit))
+        if (Physics.Raycast(ray, out RaycastHit hit) && hit.collider == _meshCollider)
         {
             ModifyTerrain(hit.point);
         }
@@ -283,7 +300,11 @@ public class TerrainEditor : MonoBehaviour
         float deltaTime = Time.deltaTime;
         float currentStrength = Input.GetKey(KeyCode.LeftShift) ? -brushStrength : brushStrength;
 
-        SaveUndoState();
+        if (!_strokeUndoSaved)
+        {
+            SaveUndoState();
+            _strokeUndoSaved = true;
+        }
 
         float targetHeight = 0f;
         if (currentMode == EditMode.Flatten)
@@ -374,9 +395,14 @@ public class TerrainEditor : MonoBehaviour
 
     void UpdateMesh()
     {
+        UpdateMesh(true);
+    }
+
+    void UpdateMesh(bool interpolate)
+    {
         if (_mesh == null) return;
 
-        if (enableVertexInterpolation && _smoothedVertices != null)
+        if (interpolate && enableVertexInterpolation && _smoothedVertices != null)
         {
             ApplyVertexInterpolation();
             _mesh.vertices = _smoothedVertices;
@@ -422,36 +448,9 @@ public class TerrainEditor : MonoBehaviour
         }
     }
 
-    public void OnBrushRadiusChanged(float value)
-    {
-        brushRadius = value;
-        UpdateRadiusText(value);
-    }
-
-    public void OnBrushStrengthChanged(float value)
-    {
-        brushStrength = value;
-        UpdateStrengthText(value);
-    }
-
-    private void UpdateRadiusText(float value)
-    {
-        if (brushRadiusText != null)
-        {
-            brushRadiusText.text = $"Radius: {value:F1}";
-        }
-    }
-
-    private void UpdateStrengthText(float value)
-    {
-        if (brushStrengthText != null)
-        {
-            brushStrengthText.text = $"Strength: {value:F2}";
-        }
-    }
-
     private void SaveUndoState()
     {
+        maxUndoSteps = Mathf.Max(1, maxUndoSteps);
         if (_undoStack.Count >= maxUndoSteps)
         {
             _undoStack.RemoveAt(0);
@@ -468,7 +467,7 @@ public class TerrainEditor : MonoBehaviour
             _redoStack.Add((Vector3[])_vertices.Clone());
             _vertices = _undoStack[_undoStack.Count - 1];
             _undoStack.RemoveAt(_undoStack.Count - 1);
-            UpdateMesh();
+            UpdateMesh(false);
         }
     }
 
@@ -479,12 +478,13 @@ public class TerrainEditor : MonoBehaviour
             _undoStack.Add((Vector3[])_vertices.Clone());
             _vertices = _redoStack[_redoStack.Count - 1];
             _redoStack.RemoveAt(_redoStack.Count - 1);
-            UpdateMesh();
+            UpdateMesh(false);
         }
     }
 
     public void ApplyGlobalScale(float scaleFactor)
     {
+        if (_vertices == null || _vertices.Length == 0) return;
         SaveUndoState();
         
         for (int i = 0; i < _vertices.Length; i++)
@@ -497,6 +497,7 @@ public class TerrainEditor : MonoBehaviour
 
     public void ApplyGlobalSmooth(float smoothAmount)
     {
+        if (_vertices == null || _vertices.Length == 0) return;
         SaveUndoState();
         
         int width = _terrainWidth + 1;
@@ -532,6 +533,7 @@ public class TerrainEditor : MonoBehaviour
 
     public void ApplyGlobalRoughness(float roughnessAmount)
     {
+        if (_vertices == null || _vertices.Length == 0) return;
         SaveUndoState();
         
         for (int i = 0; i < _vertices.Length; i++)
@@ -543,40 +545,28 @@ public class TerrainEditor : MonoBehaviour
         UpdateMesh();
     }
 
-    public void ImportHeightData(UIControlManager.TerrainData terrainData)
+    public void ImportHeightData(TerrainHeightMapData terrainData)
     {
-        MeshFilter meshFilter = GetComponent<MeshFilter>();
-        _meshCollider = GetComponent<MeshCollider>();
-        
-        _mesh = new Mesh();
-        meshFilter.mesh = _mesh;
-        _mesh.name = "Imported Terrain";
-        
-        _terrainWidth = terrainData.width - 1;
-        _terrainHeight = terrainData.height - 1;
-        
-        _vertices = new Vector3[terrainData.heights.Length];
-        _smoothedVertices = new Vector3[_vertices.Length];
-        Vector2[] uv = new Vector2[_vertices.Length];
-        
         int width = terrainData.width;
-        
-        for (int y = 0; y < terrainData.height; y++)
+        int depth = terrainData.height;
+        Vector3[] vertices = new Vector3[terrainData.heights.Length];
+        Vector2[] uv = new Vector2[vertices.Length];
+
+        for (int z = 0; z < depth; z++)
         {
             for (int x = 0; x < width; x++)
             {
-                int index = y * width + x;
-                _vertices[index] = new Vector3(x * terrainScale, terrainData.heights[index], y * terrainScale);
-                _smoothedVertices[index] = _vertices[index];
-                uv[index] = new Vector2((float)x / (width - 1), (float)y / (terrainData.height - 1));
+                int index = z * width + x;
+                float height = terrainData.heights[index];
+                vertices[index] = new Vector3(x * terrainData.scale, height, z * terrainData.scale);
+                uv[index] = new Vector2((float)x / (width - 1), (float)z / (depth - 1));
             }
         }
-        
+
         int terrainWidth = width - 1;
-        int terrainHeight = terrainData.height - 1;
+        int terrainHeight = depth - 1;
         int[] triangles = new int[terrainWidth * terrainHeight * 6];
-        
-        for (int ti = 0, vi = 0, y = 0; y < terrainHeight; y++, vi++)
+        for (int ti = 0, vi = 0, z = 0; z < terrainHeight; z++, vi++)
         {
             for (int x = 0; x < terrainWidth; x++, ti += 6, vi++)
             {
@@ -586,17 +576,29 @@ public class TerrainEditor : MonoBehaviour
                 triangles[ti + 5] = vi + width + 1;
             }
         }
-        
-        _mesh.vertices = _vertices;
-        _mesh.uv = uv;
-        _mesh.triangles = triangles;
-        _mesh.RecalculateNormals();
-        
-        if (_meshCollider != null)
-        {
-            _meshCollider.sharedMesh = _mesh;
-        }
-        
-        terrainState = TerrainState.Editable;
+
+        Mesh mesh = new Mesh { name = "Imported Heightmap Terrain" };
+        mesh.vertices = vertices;
+        mesh.uv = uv;
+        mesh.triangles = triangles;
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        SetTerrainMesh(mesh, terrainWidth, terrainHeight, terrainData.scale);
+    }
+
+    public void ClearToFlat()
+    {
+        if (_vertices == null || _vertices.Length == 0) return;
+        SaveUndoState();
+        for (int i = 0; i < _vertices.Length; i++)
+            _vertices[i].y = 0f;
+        UpdateMesh();
+    }
+
+    private void ClearHistory()
+    {
+        _undoStack.Clear();
+        _redoStack.Clear();
+        _strokeUndoSaved = false;
     }
 }

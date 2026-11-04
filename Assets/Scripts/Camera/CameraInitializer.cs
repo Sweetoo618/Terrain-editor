@@ -5,8 +5,7 @@ using UnityEngine;
 public class CameraInitializer : MonoBehaviour
 {
     [Header("Target References")]
-    public TerrainEditor terrainEditor;
-    public TerrainGrowthManager growthManager;
+    public TerrainGenerator terrainGenerator;
 
     [Header("Camera Settings")]
     [Tooltip("高度乘数，用于根据地形宽度确定相机高度")]
@@ -18,17 +17,14 @@ public class CameraInitializer : MonoBehaviour
     [ContextMenu("初始化相机位置")]
     public void InitializeCamera()
     {
-        if (terrainEditor == null)
-            terrainEditor = FindObjectOfType<TerrainEditor>();
+        if (terrainGenerator == null)
+            terrainGenerator = FindObjectOfType<TerrainGenerator>();
 
-        if (growthManager == null)
-            growthManager = FindObjectOfType<TerrainGrowthManager>();
-
-        if (terrainEditor == null || growthManager == null)
+        if (terrainGenerator == null || terrainGenerator.config == null)
             return;
 
-        float terrainWidth = growthManager.terrainWidth * terrainEditor.terrainScale;
-        float terrainHeight = growthManager.terrainHeight * terrainEditor.terrainScale;
+        float terrainWidth = terrainGenerator.config.width * terrainGenerator.config.cellSize;
+        float terrainHeight = terrainGenerator.config.depth * terrainGenerator.config.cellSize;
 
         Vector3 terrainCenter = new Vector3(terrainWidth / 2f, 0, terrainHeight / 2f);
         float height = terrainWidth * heightMultiplier;
